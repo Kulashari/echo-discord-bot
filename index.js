@@ -60,13 +60,14 @@ client.login(process.env.DISCORD_TOKEN); //logs bot into discord using token
 
 client.on("messageCreate", async (message) => { //event  listener that triggers when a message is created  
     const chatCompletion = await getGroqChatCompletion();
-      
+    const modelMessage = chatCompletion.choices[0].message.content; // access the model's response text
+
     async function getGroqChatCompletion() {
         return groq.chat.completions.create({ //creates a chat completion using the groq api
           messages: [
             {
               role: "user",
-              content: "Explain the importance of fast language models",
+              content: "Give me a discipline speech about getting out of bed every morning when I wake up, while also mentioning to not depend on motivation and that time is running out. While making sure this message will get me out of bed, don't be soft either and making sure it's less then 2000 characters.",
             },
           ],
           model: "openai/gpt-oss-20b",
@@ -77,7 +78,9 @@ client.on("messageCreate", async (message) => { //event  listener that triggers 
         if (!message.author.bot){
             // Create Discord embeds with weather data and icons
             const weatherEmbeds = createWeatherEmbeds(data);
+            const personalMessage = "Seek Discomfort."; // your message at the end
             await message.author.send({ embeds: weatherEmbeds });
+            await message.author.send(modelMessage + "\n\n" + personalMessage);
         }
     } catch (error) {
         console.error('error sending message:', error);
