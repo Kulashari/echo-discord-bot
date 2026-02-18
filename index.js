@@ -4,9 +4,14 @@ dotenv.config();
 import {Client, GatewayIntentBits, EmbedBuilder} from 'discord.js'; //imports the discord.js library to work with the api
 import Groq from "groq-sdk"; //imports the groq-sdk library to work with the api
 
+import { readFile } from 'fs/promises'; //imports the file system module 
+import path from 'path'; 
+import { fileURLToPath } from 'url';
+
 const weatherURL = `https://api.openweathermap.org/data/2.5/forecast?q=hamilton&appid=${process.env.OPENWEATHER_API_KEY}`; //for now hard code the country but change it later for user input
 const data = await (await fetch(weatherURL)).json();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY }); //initializes the groq api
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 
 // Function to create Discord embeds with weather data and icons
@@ -45,7 +50,25 @@ function createWeatherEmbeds(weatherData) {
     }
     
     return embeds;
-}   
+}  
+
+function getDayIndex(){
+    const today = new Date();
+    const dayIndex = today.getDay();
+    return dayIndex;
+}
+
+
+async function getFileContent(filePath) {
+    try {
+        const fullPath = path.join(__dirname, filePath);
+        const data = await readFile(fullPath, 'utf8');
+        return data;
+    } catch (err) {
+        console.error('Error reading file:', err);
+        throw err;
+    }
+}
 
 const client = new Client({
     intents: [
@@ -59,18 +82,48 @@ const client = new Client({
 client.login(process.env.DISCORD_TOKEN); //logs bot into discord using token
 
 client.on("messageCreate", async (message) => { //event  listener that triggers when a message is created  
+    const today = new Date().toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
     const chatCompletion = await getGroqChatCompletion();
     const modelMessage = chatCompletion.choices[0].message.content; // access the model's response text
 
     async function getGroqChatCompletion() {
+        let txtFile = 'modelPrompt1.txt';
+        console.log(getDayIndex());
+        switch(getDayIndex()){
+            case 0: //sunday
+                txtFile = 'modelPrompt1.txt'
+                break;
+            case 1:
+                txtFile = 'modelPrompt1.txt'
+                break;
+            case 2:
+                txtFile = 'modelPrompt2.txt'
+                break;
+            case 3:
+                txtFile = 'modelPrompt3.txt'
+                break;
+            case 4:
+                txtFile = 'modelPrompt4.txt'
+                break;
+            case 5:
+                txtFile = 'modelPrompt5.txt'
+                break;
+            case 6:
+                txtFile = 'modelPrompt2.txt'
+                break;
+            default: txtFile = 'modelPrompt1.txt'
+        }
+
+        const promptContent = await getFileContent(txtFile);
         return groq.chat.completions.create({ //creates a chat completion using the groq api
           messages: [
             {
               role: "user",
-              content: "Give me a discipline speech about getting out of bed every morning when I wake up, while also mentioning to not depend on motivation and that time is running out. While making sure this message will get me out of bed, don't be soft either and making sure it's less then 2000 characters.",
+              content: promptContent,
             },
           ],
-          model: "openai/gpt-oss-20b",
+          model: "openai/gpt-oss-120b",
         });
     }
 
@@ -78,9 +131,11 @@ client.on("messageCreate", async (message) => { //event  listener that triggers 
         if (!message.author.bot){
             // Create Discord embeds with weather data and icons
             const weatherEmbeds = createWeatherEmbeds(data);
-            const personalMessage = "Seek Discomfort."; // your message at the end
-            await message.author.send({ embeds: weatherEmbeds });
-            await message.author.send(modelMessage + "\n\n" + personalMessage);
+            const personalMessage = "My best advice is to stop using motivation as your only fuel. I know it feels great when you're fired up, but it's a short-term fuel source. That's why the vast majority of people who start anything - diet, fitness, new projects - don't finish. They run out of gas. The only lasting fuel is routine. -Arnold Schwarzenegger \n\nDon't waste the day.";
+            await message.author.send(today);
+            await message.author.send({ embeds: weatherEmbeds }); //bot send's the message in a specific order 
+            const spacing = "\n\n"; // one blank line between model and personal
+            await message.author.send(modelMessage + spacing + personalMessage);
         }
     } catch (error) {
         console.error('error sending message:', error);
